@@ -3,6 +3,9 @@
  
 constexpr uint8_t RST_PIN = 9;     // Configurable, see typical pin layout above
 constexpr uint8_t SS_PIN = 10;     // Configurable, see typical pin layout above
+
+
+int level = 4;
  
 MFRC522 rfid(SS_PIN, RST_PIN); // Instance of the class
  
@@ -42,6 +45,7 @@ void loop() {
    
     printDec(rfid.uid.uidByte, rfid.uid.size);
     Serial.println();
+    Serial.println(level);
  
   // Halt PICC
   rfid.PICC_HaltA();
