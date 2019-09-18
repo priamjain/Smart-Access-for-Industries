@@ -4,12 +4,22 @@ from tkinter import messagebox as ms
 import sqlite3
 import serial
 
+
 # make database and users (if not exists already) table at programme start up
 with sqlite3.connect('quit.db') as db:
     c = db.cursor()
 
-c.execute('CREATE TABLE IF NOT EXISTS user (userid TEXT NOT NULL ,username TEXT NOT NULL, password TEX NOT NULL);')
+c.execute('CREATE TABLE IF NOT EXISTS user (userid TEXT NOT NULL ,username TEXT NOT NULL, password TEXT NOT NULL, level Integer NOT NULL);')
 db.commit()
+'''
+ser =serial.Serial('/dev/ttyACM0',9600)
+while(True):
+    temp = ser.readline().decode('utf-8')
+    break
+insert = 'INSERT INTO user(userid,username,password,level) VALUES(?,?,?,?)'
+c.execute(insert,[temp,'Priam Jain','admin',1])
+db.commit()
+'''
 db.close()
 
 #main Class
@@ -18,16 +28,44 @@ class main:
     	# Window 
         self.master = master
         # Some Usefull variables
+        self.human_r = StringVar()
+        self.arduino_level = StringVar()
         self.username = StringVar()
         self.userid = StringVar()
         self.password = StringVar()
+        self.level = IntVar()
         self.n_username = StringVar()
         self.n_userid = StringVar()
         self.n_password = StringVar()
+        self.n_level = IntVar()
         #Create Widgets
         self.widgets()
 
     #Login Function
+    def empl_main(self):
+        ser =serial.Serial('/dev/ttyACM0',9600)
+        while(True):
+            self.userid = ser.readline().decode('utf-8')
+            self.arduino_level = ser.readline().decode('utf-8')
+            break
+        with sqlite3.connect('quit.db') as db:
+            c = db.cursor()
+
+        #Find user If there is any take proper action
+        find_user = ('SELECT * FROM user WHERE userid =?')
+        c.execute(find_user,[(self.userid)])
+        result = c.fetchall()
+        if result:
+            for i in result:
+                if str(self.arduino_level) >= str(i[3]) :
+                    ms.showinfo('Camera','Running')
+                else:
+                    ms.showerror('Warning','Unauthorized')
+        else:
+            ms.showerror('Oops!','Userid Not Found.')
+            self.mp()
+            
+        
     def rfid_login(self):
         ser =serial.Serial('/dev/ttyACM0',9600)
         while(True):
@@ -51,13 +89,16 @@ class main:
         result = c.fetchall()
         if result:
             for i in result:
-                self.logf.pack_forget()
-                self.head['text'] = 'Welcome: ' + i[1]
-                self.opt()
-            
+                if i[3] == 1:
+                    self.logf.pack_forget()
+                    self.head['text'] = 'Welcome: ' + i[1]
+                    self.opt()
+                else:
+                    ms.showinfo('Warning','Unauthorized')
                 
         else:
             ms.showerror('Oops!','Userid Not Found.')
+            self.log()
             
     def new_user(self):
     	#Establish Connection
@@ -71,8 +112,8 @@ class main:
             ms.showerror('Error!','Userid Taken Try a Diffrent One.')
         else:
             ms.showinfo('Success!','Account Created!')
-            insert = 'INSERT INTO user(userid,username,password) VALUES(?,?,?)'
-            c.execute(insert,[(self.n_userid),(self.n_username.get()),(self.n_password.get())])
+            insert = 'INSERT INTO user(userid,username,password,level) VALUES(?,?,?,?)'
+            c.execute(insert,[(self.n_userid),(self.n_username.get()),(self.n_password.get()),(self.n_level.get())])
             db.commit()
             self.opt()
         #Create New Account 
@@ -83,6 +124,8 @@ class main:
         self.userid = ''
         self.password.set('')
         self.username.set('')
+        self.level.set('')
+        self.mpf.pack_forget()
         self.optf.pack_forget()
         self.crf.pack_forget()
         self.head['text'] = 'LOGIN'
@@ -92,8 +135,23 @@ class main:
         self.n_userid = ''
         self.n_username.set('')
         self.n_password.set('')
+        self.n_level.set('')
         self.crf.pack_forget()
         self.optf.pack()
+        
+    def mp(self):
+        self.userid = ''
+        self.password.set('')
+        self.username.set('')
+        self.level.set('')
+        self.n_userid = ''
+        self.n_username.set('')
+        self.n_password.set('')
+        self.n_level.set('')
+        self.mpf.pack_forget()
+        self.optf.pack_forget()
+        self.crf.pack_forget()
+        self.mpf.pack()
 
         
     def cr(self):
@@ -109,27 +167,37 @@ class main:
     def widgets(self):
         self.head = Label(self.master,text = 'LOGIN',font = ('',35),pady = 10)
         self.head.pack()
+        
+        
+        self.mpf = Frame(self.master,padx=10,pady=10)
+        Label(self.mpf,text = 'Employee Check: ' ,bd = 3,font= ('',20),pady=5,padx=5).grid(sticky = W)
+        Button(self.mpf,text = 'RFID',bd = 3,font=('',15),padx=5,pady=5,command=self.empl_main).grid()
+        Label(self.mpf,text = 'For Administrator: ' ,bd = 3,font= ('',20),pady=5,padx=5).grid(sticky = W)
+        Button(self.mpf,text = 'Click Here!',bd = 3,font=('',15),padx=5,pady=5,command=self.log).grid()
+        self.mpf.pack()
+        
         self.logf = Frame(self.master,padx =10,pady = 10)
-        Label(self.logf,text = 'Userid: ',font = ('',20),pady=5,padx=5).grid(sticky = W)
+        Label(self.logf,text = 'User id: ',font = ('',20),pady=5,padx=5).grid(sticky = W)
         Button(self.logf,text = ' RFID ',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.rfid_login).grid(row=1,column=0)
         Label(self.logf,text = 'Password: ',font = ('',20),pady=5,padx=5).grid(sticky = W)
         Entry(self.logf,textvariable = self.password,bd = 5,font = ('',15),show = '*').grid(row=2,column=1)
         Button(self.logf,text = ' Login ',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.login).grid(row=3,column=0)
-        self.logf.pack()
         
         self.crf = Frame(self.master,padx =10,pady = 10)
-        Label(self.crf,text = 'Userid: ',font = ('',20),pady=5,padx=5).grid(sticky = W)
+        Label(self.crf,text = 'User id: ',font = ('',20),pady=5,padx=5).grid(sticky = W)
         Button(self.crf,text = ' RFID ',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.rfid_create).grid(row=0,column=1)
         Label(self.crf,text = 'Name: ',font = ('',20),pady=5,padx=5).grid(row=2,column=0)
         Entry(self.crf,textvariable = self.n_username,bd = 5,font = ('',15)).grid(row=2,column=1)
         Label(self.crf,text = 'Password: ',font = ('',20),pady=5,padx=5).grid(sticky = W)
         Entry(self.crf,textvariable = self.n_password,bd = 5,font = ('',15),show = '*').grid(row=3,column=1)
+        Label(self.crf,text = 'Level: ',font = ('',20),pady=5,padx=5).grid(sticky = W)
+        Entry(self.crf,textvariable = self.n_level,bd = 5,font = ('',15),show = '').grid(row=4,column=1)
         Button(self.crf,text = 'Create Account',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.new_user).grid()
-        Button(self.crf,text = 'Sign Out',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.log).grid(row=4,column=1)
+        Button(self.crf,text = 'Sign Out',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.mp).grid(row=5,column=1)
        
         self.optf = Frame(self.master,padx =10,pady = 10)
         Button(self.optf,text = 'Create Account',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.cr).grid()
-        Button(self.optf,text = 'Sign Out',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.log).grid()
+        Button(self.optf,text = 'Sign Out',bd = 3 ,font = ('',15),padx=5,pady=5,command=self.mp).grid()
     
 
 #create window and application object
